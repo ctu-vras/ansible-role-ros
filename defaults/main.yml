@@ -1,11 +1,43 @@
 ---
-# Currently supported ROS releases:
-# - "groovy" on Ubuntu "precise"
-# - "hydro"  on Ubuntu "precise"
-# - "indigo" on Ubuntu "trusty"
-ros_release: "indigo"
+# Translate ansible_architecture to dpkg --print-architecture
+__ros_deb_architecture_map:
+  "armv6l": "armhf"
+  "armv7l": "armhf"
+  "aarch64": "arm64"
+  "x86_64": "amd64"
+  "i386": "i386"
+ros_deb_architecture: "{{ __ros_deb_architecture_map[ansible_architecture] }}"
+
+__ros_default_releases:
+  Ubuntu:
+    "18.04": "melodic"
+    "20.04": "noetic"
+    "22.04": "humble"
+    "24.04": "jazzy"
+ros_release: "{{ __ros_default_releases.get(ansible_distribution, {}).get(ansible_distribution_version, 'noetic') }}"
+
+__ros1_releases:
+  - boxturtle
+  - cturtle
+  - diamondback
+  - electric
+  - fuerte
+  - groovy
+  - hydro
+  - indigo
+  - jade
+  - kinetic
+  - lunar
+  - melodic
+  - noetic
+  - obese
+ros_version: "{{ 1 if ros_release in __ros1_releases else 2 }}"
+ros_apt_repo_filename: "{{ 'ros-latest' if ros_version == '1' else 'ros2' }}"
+
 ros_package: "ros-base"
 
-# Optionally use a mirror for the ROS packages
-ros_apt_uri: "http://packages.ros.org/ros/ubuntu"
 ros_apt_key: "https://raw.githubusercontent.com/ros/rosdistro/master/ros.key"
+ros_apt_key_filename: "/usr/share/keyrings/ros-archive-keyring.gpg"
+
+# Optionally use a mirror for the ROS packages
+ros_apt_uri: "http://packages.ros.org/{{ 'ros' if ros_version == '1' else 'ros2' }}/ubuntu"

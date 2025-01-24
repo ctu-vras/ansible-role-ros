@@ -1,15 +1,49 @@
 ---
-- name: Add ROS repository apt-key
-  apt_key:
+
+- name: Install software-properties-common
+  ansible.builtin.apt:
+    pkg:
+    - software-properties-common
+    state: present
+  when: ros_version == '2'
+
+- name: Add universe repo
+  ansible.builtin.shell: "sudo add-apt-repository universe -y"
+  when: ros_version == '2'
+
+- name: Check ros keyring age
+  ansible.builtin.find:
+    paths: "{{ ros_apt_key_filename | dirname }}"
+    pattern: "{{ ros_apt_key_filename | basename }}"
+    age: -4w
+    recurse: no
+  register: ros_key_age
+
+- name: Add ROS repository apt-key if not present or not updated in 1 month
+  ansible.builtin.get_url:
     url: "{{ ros_apt_key }}"
-    state: present
+    dest: "{{ ros_apt_key_filename }}"
+    mode: '0644'
+    force: yes
+  when: ros_key_age.files | length == 0
 
+# We do not use apt_repository here to manage the record because we want to overwrite the (potentially) existing file
+# instead of appending to it (to allow changing the repo mirrors if needed). 
 - name: Add ROS repository
-  apt_repository:
-    repo: "deb {{ ros_apt_uri }} {{ ansible_lsb.codename }} main"
-    state: present
+  ansible.builtin.copy:
+    content: "deb [arch={{ ros_deb_architecture }} signed-by={{ ros_apt_key_filename }}] {{ ros_apt_uri }} {{ ansible_lsb.codename }} main"
+    dest: "/etc/apt/sources.list.d/{{ ros_apt_repo_filename }}.list"
+    backup: yes
+  register: ros_apt_repo
 
-- name: Install desired ROS package
-  apt:
+- name: Update packages after adding the ROS repo
+  ansible.builtin.apt:
+    update_cache: yes
+    upgrade: dist
+    cache_valid_time: 0
+  when: ros_apt_repo.changed
+
+- name: Install desired ROS packages
+  ansible.builtin.apt:
     pkg: "ros-{{ ros_release }}-{{ ros_package }}"
     state: present
