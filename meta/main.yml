@@ -13,3 +13,6 @@ galaxy_info:
     - focal
     - jammy
     - noble
+  - galaxy_tags:
+    - development
+    - system
