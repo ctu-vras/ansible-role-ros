@@ -2,8 +2,7 @@
 
 - name: Install software-properties-common
   ansible.builtin.apt:
-    pkg:
-    - software-properties-common
+    pkg: "software-properties-common"
     state: present
   when: ros_version == '2'
 
