@@ -5,16 +5,16 @@ galaxy_info:
   author: peci1
   description: Robot Operating System (ROS) installation for Linux.
   namespace: ctu_vras
-  role_name: ROS
+  role_name: ros
   company: "Czech Technical University in Prague"
   license: "BSD"
   min_ansible_version: "2.1"
   platforms:
     - name: Ubuntu
       versions:
-      - all
+        - all
     - galaxy_tags:
-      - development
-      - system
-      - ros
-      - robotics
+        - development
+        - system
+        - ros
+        - robotics

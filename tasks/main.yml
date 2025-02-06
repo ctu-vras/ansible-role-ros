@@ -7,7 +7,7 @@
   when: ros_version == '2'
 
 - name: Add universe repo
-  ansible.builtin.shell: "sudo add-apt-repository universe -y"
+  ansible.builtin.command: add-apt-repository universe -y  # noqa: no-changed-when
   when: ros_version == '2'
 
 - name: Check ros keyring age
@@ -36,7 +36,7 @@
     backup: true
   register: ros_apt_repo
 
-- name: Update packages after adding the ROS repo
+- name: Update packages after adding the ROS repo  # noqa: no-handler
   ansible.builtin.apt:
     update_cache: true
     upgrade: dist
