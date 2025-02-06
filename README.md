@@ -1,6 +1,6 @@
 # Ansible Role: ROS
 
-Ansible Galaxy: [ctu_vras.ROS](https://galaxy.ansible.com/ui/standalone/roles/ctu_vras/ROS/)
+Ansible Galaxy: [ctu_vras.ros](https://galaxy.ansible.com/ui/standalone/roles/ctu_vras/ros/)
 
 Installs the Robot Operating System (ROS) on Ubuntu linux servers. It supports both ROS 1 and ROS 2 distros.
 
