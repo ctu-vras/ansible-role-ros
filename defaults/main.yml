@@ -30,14 +30,19 @@ __ros1_releases:
   - lunar
   - melodic
   - noetic
-  - obese
+  - one
 ros_version: "{{ 1 if ros_release in __ros1_releases else 2 }}"
-ros_apt_repo_filename: "{{ 'ros-latest' if ros_version == '1' else 'ros2' }}"
+
+__ros_or_ros2: "{{ 'ros' if ros_version == '1' else 'ros2' }}"
+ros_apt_mirror_filename: "{{ __ros_or_ros2 + '-mirror' }}"
 
 ros_package: "ros-base"
 
-ros_apt_key: "https://raw.githubusercontent.com/ros/rosdistro/master/ros.key"
-ros_apt_key_filename: "/usr/share/keyrings/ros-archive-keyring.gpg"
+# There is no ros-apt-sources package for bionic, but the focal one works great
+__ros_apt_source_codename: "{{ ansible_lsb.codename if ansible_lsb.codename != 'bionic' else 'focal' }}"
+ros_apt_source_uri: "https://ftp.osuosl.org/pub/ros/packages.ros.org/ros2/ubuntu/pool/main/r/ros-apt-source/{{ __ros_or_ros2 }}-apt-source_1.1.0~{{ __ros_apt_source_codename }}_all.deb"
+ros_one_apt_key: "https://ros.packages.techfak.net/gpg.key"  # Only used for ROS One
+ros_apt_key_filename: "{{ ('/usr/share/keyrings/' + __ros_or_ros2 + '-archive-keyring.gpg') if ros_release != 'one' else '/etc/apt/keyrings/ros-one-keyring.gpg' }}"
 
 # Optionally use a mirror for the ROS packages
-ros_apt_uri: "http://packages.ros.org/{{ 'ros' if ros_version == '1' else 'ros2' }}/ubuntu"
+ros_apt_uri: "{{ 'http://packages.ros.org/' + __ros_or_ros2 + '/ubuntu' if ros_release != 'one' else 'https://ros.packages.techfak.net' }}"

@@ -1,5 +1,9 @@
 ---
 
+- name: Gather package facts
+  package_facts:
+    manager: apt
+
 - name: Install software-properties-common
   ansible.builtin.apt:
     pkg: "software-properties-common"
@@ -10,40 +14,106 @@
   ansible.builtin.command: add-apt-repository universe -y  # noqa: no-changed-when
   when: ros_version == '2'
 
-- name: Check ros keyring age
+- name: Add ros-apt-source if not present
+  ansible.builtin.apt:
+    deb: "{{ ros_apt_source_uri }}"
+  when: ros_release != 'one' and (__ros_or_ros2 + "-apt-source") not in ansible_facts.packages
+  register: ros_apt_sources
+
+- name: Add ROS repository on Melodic and older or One
+  ansible.builtin.copy:
+    content: "deb [arch={{ ros_deb_architecture }} signed-by={{ ros_apt_key_filename }}] {{ ros_apt_uri }} {{ ansible_lsb.codename }} main"
+    dest: "/etc/apt/sources.list.d/{{ 'ros-latest' if ros_release != 'one' else 'ros1' }}.list"
+    mode: "u=rw,g=r,o=r"
+    backup: true
+  when: ros_version == '1' and (ros_release != 'noetic')
+  register: ros_apt_repo_melodic_one
+
+- name: Configure ROS repository preferences on Melodic and older
+  ansible.builtin.copy:
+    content: |
+      Package: *
+      Pin: release n=focal
+      Pin-Priority: 400
+    dest: "/etc/apt/preferences.d/ros-focal-ban"
+    mode: "u=rw,g=r,o=r"
+  when: ros_version == '1' and ros_release <= 'melodic'
+
+- name: Check ROS One keyring age
   ansible.builtin.find:
     paths: "{{ ros_apt_key_filename | dirname }}"
     pattern: "{{ ros_apt_key_filename | basename }}"
     age: -4w
     recurse: false
-  register: ros_key_age
+  register: ros_one_key_age
+  when: ros_release == 'one'
 
-- name: Add ROS repository apt-key if not present or not updated in 1 month
+- name: Add ROS One repository apt-key if not present or not updated in 1 month
   ansible.builtin.get_url:
-    url: "{{ ros_apt_key }}"
+    url: "{{ ros_one_apt_key }}"
     dest: "{{ ros_apt_key_filename }}"
     mode: '0644'
     force: true
-  when: ros_key_age.files | length == 0
+  when: ros_release == 'one' and (ros_one_key_age.files | length == 0)
 
 # We do not use apt_repository here to manage the record because we want to overwrite the (potentially) existing file
 # instead of appending to it (to allow changing the repo mirrors if needed).
-- name: Add ROS repository
+- name: Add ROS mirror repository
   ansible.builtin.copy:
-    content: "deb [arch={{ ros_deb_architecture }} signed-by={{ ros_apt_key_filename }}] {{ ros_apt_uri }} {{ ansible_lsb.codename }} main"
-    dest: "/etc/apt/sources.list.d/{{ ros_apt_repo_filename }}.list"
+    content: |
+      Types: deb deb-src
+      URIs: {{ ros_apt_uri }}
+      Suites: {{ __ros_apt_source_codename }}
+      Components: main
+      Signed-By: {{ ros_apt_key_filename }}
+    dest: "/etc/apt/sources.list.d/{{ ros_apt_mirror_filename }}.sources"
     mode: "u=rw,g=r,o=r"
     backup: true
   register: ros_apt_repo
+  when: not ros_apt_uri.startswith("http://packages.ros.org/") and (ros_version > '1' or ros_release == 'noetic')
+
+- name: Add ROS mirror repository preferences
+  ansible.builtin.copy:
+    content: |
+      Package: *
+      Pin: origin "packages.ros.org"
+      Pin-Priority: 499
+    dest: "/etc/apt/preferences.d/ros-prefer-mirrors"
+    mode: "u=rw,g=r,o=r"
+  when: not ros_apt_uri.startswith("http://packages.ros.org/") and (ros_version > '1' or ros_release == 'noetic')
+
+- name: Remove obsolete APT files
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/ros-latest.list
+    state: absent
+  when: ros_version > '1' or ros_release >= 'noetic'
+
+- name: Remove obsolete APT files
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/ros2.list
+    state: absent
 
 - name: Update packages after adding the ROS repo  # noqa: no-handler
   ansible.builtin.apt:
     update_cache: true
     upgrade: dist
     cache_valid_time: 0
-  when: ros_apt_repo.changed
+  when: ros_apt_repo.changed or ros_apt_repo_melodic_one.changed or ros_apt_sources.changed
 
 - name: Install desired ROS packages
   ansible.builtin.apt:
     pkg: "ros-{{ ros_release }}-{{ ros_package }}"
     state: present
+
+- name: Create /etc/ros/rosdep/sources.list.d directory
+  ansible.builtin.file:
+    path: /etc/ros/rosdep/sources.list.d
+    state: directory
+  when: ros_release == 'one'
+
+- name: Configure extra Rosdep database for ROS One
+  ansible.builtin.copy:
+    content: "yaml https://ros.packages.techfak.net/ros-one.yaml one"
+    dest: "/etc/ros/rosdep/sources.list.d/1-ros-one.list"
+    mode: "u=rw,g=r,o=r"
+  when: ros_release == 'one'
