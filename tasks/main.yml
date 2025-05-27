@@ -14,9 +14,44 @@
   ansible.builtin.command: add-apt-repository universe -y  # noqa: no-changed-when
   when: ros_version == '2'
 
+- name: Get latest Github release of ros-infrastructure/ros-apt-source
+  when: ros_release != 'one' and (__ros_or_ros2 + "-apt-source") not in ansible_facts.packages
+  block:
+    - name: Get latest Github release via API
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest
+        return_content: true
+      register: github_latest
+    - name: Parse latest tag name
+      ansible.builtin.set_fact:
+        ros_apt_source_version: "{{ github_latest.json.tag_name }}"
+  rescue:
+    - name: Clone ros-infrastructure/ros-apt-source
+      ansible.builtin.git:
+        repo: https://github.com/ros-infrastructure/ros-apt-source
+        dest: "/tmp/ros-infrastructure/ros-apt-source"
+        depth: 1
+        bare: true
+        update: false
+
+    - name: Get new tags from ros-infrastructure/ros-apt-source
+      ansible.builtin.command: "git fetch --tags"
+      args:
+        chdir: "/tmp/ros-infrastructure/ros-apt-source"
+
+    - name: Get latest tag of ros-infrastructure/ros-apt-source
+      ansible.builtin.shell: "git tag --sort=-creatordate | head -n1"
+      args:
+        chdir: "/tmp/ros-infrastructure/ros-apt-source"
+      register: latest_tag
+
+    - name: Parse latest tag name
+      ansible.builtin.set_fact:
+        ros_apt_source_version: "{{ latest_tag.stdout }}"
+
 - name: Add ros-apt-source if not present
   ansible.builtin.apt:
-    deb: "{{ ros_apt_source_uri }}"
+    deb: "https://github.com/ros-infrastructure/ros-apt-source/releases/download/{{ __ros_or_ros2 }}-apt-source_{{ ros_apt_source_version }}~{{ __ros_apt_source_codename }}_all.deb"
   when: ros_release != 'one' and (__ros_or_ros2 + "-apt-source") not in ansible_facts.packages
   register: ros_apt_sources
 

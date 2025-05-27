@@ -40,7 +40,6 @@ ros_package: "ros-base"
 
 # There is no ros-apt-sources package for bionic, but the focal one works great
 __ros_apt_source_codename: "{{ ansible_lsb.codename if ansible_lsb.codename != 'bionic' else 'focal' }}"
-ros_apt_source_uri: "https://ftp.osuosl.org/pub/ros/packages.ros.org/ros2/ubuntu/pool/main/r/ros-apt-source/{{ __ros_or_ros2 }}-apt-source_1.1.0~{{ __ros_apt_source_codename }}_all.deb"
 ros_one_apt_key: "https://ros.packages.techfak.net/gpg.key"  # Only used for ROS One
 ros_apt_key_filename: "{{ ('/usr/share/keyrings/' + __ros_or_ros2 + '-archive-keyring.gpg') if ros_release != 'one' else '/etc/apt/keyrings/ros-one-keyring.gpg' }}"
 
